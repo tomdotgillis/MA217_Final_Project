@@ -1,0 +1,432 @@
+---
+title: "MA-217 Final Project"
+author: "Thomas Gillis"
+date: "2024-05-06"
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r echo = FALSE, warning=FALSE, results='hide'}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages
+
+```{r echo = TRUE, warning=FALSE, message=FALSE, results='hide'}
+library(tidyverse)
+
+library(igraph)
+
+library(ggraph)
+
+library(latex2exp)
+
+library(e1071)
+
+```
+
+## Loading Data Set
+
+Data from Evelina Gabasova on
+[Github](https://github.com/evelinag/StarWars-social-network/blob/129fbbdb8919e0dd14bc2db4a44f496a14e5ea07/networks/starwars-full-interactions-allCharacters-merged.json),
+converted to `.graphml` and uploaded to Github. Other relevant files can
+be found in the
+[repo](https://github.com/tomdotgillis/MA217_Final_Project/tree/15260084fbb2d23533d993ad4f28cebead1b57be).
+
+```{r echo = FALSE, warning=FALSE, results='hide'}
+g <- read_graph('https://raw.githubusercontent.com/tomdotgillis/MA217_Final_Project/main/StarWarsGraph_evelinag.graphml', format = 'graphml')
+```
+
+## Loading Data from the Graph
+
+```{r echo = FALSE, warning=FALSE, results='hide'}
+# Vertices
+V(g) # Vertices
+E(g) # Edges
+node_colors <- V(g)$colour # Colors assigned in the file
+components(g)$no# Number of Components
+components(g)$csize# Size of Components
+THX <- 1138
+```
+
+**1. What is the order of your network? What is the size of this
+network? How many components does it have? Is the network directed or
+undirected? Do the nodes have attributes? Do the links have attributes?
+Include your answers to these questions in your written report, but not
+your code or its output.**
+
+-   In R, the method to find the order of a network is to use the
+    `vcount(g)` function, which returns the number of nodes in the
+    network. When run on Star Wars Character Interaction Network, the
+    function returns the value 111, which corresponds to the order of
+    the network
+
+    ```{r echo = FALSE, warning=FALSE, results='hide'}
+
+    nO <- vcount(g) # Calculates the order of the network
+    nO # variable storing the order of the network
+    ```
+
+**2. Using `Tree`, `Multidimensional Scaling`, and `Kamada-Kawai`
+layouts separately, what do you observe when you visualize your network
+? Describe your observations for each of these layouts. Use at most 25
+words for each layout. Include your observations in your written report,
+but not your code or its output.**
+
+**- Plot using** `tree` **layout**
+
+-   The `Tree` shows an interesting character hierarchy, which makes
+    sense, as *Star Wars* follows the Skywalker family through
+    generations. The network combined the interactions of Anakin
+    Skywalker and Darth Vader into one `Darth Vader` node, making it's
+    outdegree significantly higher than nodes.
+
+    ```{r echo = FALSE, warning=FALSE, results='hide'}
+    set.seed(THX)
+
+    ggraph(g,layout = 'tree') +
+      geom_edge_fan(edge_linetype = 1, color = 'blue', alpha = 0.25) +
+      geom_node_point(color = node_colors, size = 1, alpha = 0.75) + 
+      theme_graph(base_family = 'Helvetica') +
+      labs(title = 'Star Wars Character Interactions',
+           subtitle = 'Displayed using a tree Layout ')
+    ```
+
+**- Plot using** `Multidimensional Scaling` **layout**
+
+-   The `mds`layout produced a visually appealing graph, but there is a
+    large cluster of nodes in one region, making it difficult to extract
+    information from the visualization.
+
+    ```{r echo = FALSE, warning=FALSE, results='hide'}
+    set.seed(THX)
+
+    ggraph(g,layout = 'mds') +
+      geom_edge_fan(edge_linetype = 1, color = 'blue', alpha = 0.25) +
+      geom_node_point(color = node_colors, size = 1, alpha = 0.75) +
+      theme_graph(base_family = 'Helvetica') + 
+      labs(title = 'Star Wars Character Interactions',
+           subtitle = 'Displayed using multidimensional scaling layout')
+    ```
+
+**- Plot using** `Kamada-Kawai` **layout**
+
+-   The `kk` layout created a plot that was visually appealing, and
+    highlighted potential hubs, as well as nodes on the periphery.
+
+    ```{r echo = FALSE, warning=FALSE, results='hide'}
+    set.seed(THX)
+
+    ggraph(g, layout = 'kk') +
+      geom_edge_fan(edge_linetype = 1, color = 'blue', alpha = 0.25) + 
+      geom_node_point(color = node_colors, size = 1, alpha = 0.75) +
+      theme_graph(base_family = 'Helvetica') +
+      labs(title = 'Star Wars Character Interactions',
+           subtitle = 'Displayed using Kamada-Kawai layout')
+    ```
+
+**3. Create a data.frame that contains eccentricity, betweenness,
+degree, transitivity, eigen centrality, and hub score for your network.
+You need to look up the documentation for the last two statistics in
+Help. Note that both eigen centrality and hub score return three lists
+and you need to access one of them. Make sure that you make the
+appropriate changes to the code. Do not include your code or its output
+in your report.**
+
+-   **Statistics for the network, including** `eccentricity`,
+    `betweenness`, `degree`, `Transitivity`, `Eigen Centrality`, and
+    `Hub Score`.
+
+    ```{r echo = FALSE, warning=FALSE, results='hide'}
+    # [TODO]: Figure out the Eigen Centrality stuffs ####
+    #Creates the dataframe df by binding different vectors created by calling each function 
+    suppressMessages(df <- bind_cols(enframe(eccentricity(g, mode = 'out')),
+                                            enframe(betweenness(g)),
+                                            enframe(degree(g)),
+                                            enframe(transitivity(g, type = c('local'))),
+                                            enframe(eigen_centrality(g)$vector),
+                                            enframe(hub_score(g)$vector)))
+    # narrow the dataframe df to hold 5 values
+    df <- df |> select(name...1, value...2, value...4, value...6, value...8, value...10, value...12) 
+
+    # names the columns in the dataframe
+    names(df) <- c('Names','eccentricity','betweenness','degree','clustering', 'Eigen Centrality','hub') 
+
+    # prints first few rows of the dataframe
+    head(df) 
+
+    # prints the last few rows of the dataframe
+    tail(df)
+
+    # prints a 'glimpse' or summary of the dataframe
+    glimpse(df) 
+    ```
+
+**4. Create a data.frame that includes the average degree, maximum
+degree, diameter, average clustering coefficient, average betweenness,
+average eigen centrality, and average hub score for your network.
+Include the output in your report but not your code. Do you notice
+anything interesting in this data.frame? Is this observation you are
+making also true when you look at the data.frame in Question 3?**
+
+-   **Metrics for the network, including** Avgerage Degree `[ADEG]`,
+    `Max Degree`, `Proportion`, `Diameter`, `Radius`, Average clustering
+    Coefficient `[ACC]`, Average betweenness `[ABT]`, Average Eigen
+    Centrality `[AEC]`, and Average Hub Score `[AHS]`
+
+    -   The Average Degree of the graph was 8, which was suprising, as
+        the values in the `head()` and `tail()` of the dataframe
+        fluctuated between 4-6.
+
+    ```{r echo = FALSE, warning=FALSE, message=FALSE}
+    sum_frame <- df |> 
+      summarize("ADEG" = mean(degree),
+                    # Maximum Outdegree, Largest Hub?
+                    delta = max(degree), 
+                    # Largest eccentricity? or amount of nodes in diameter
+                    diam = max(eccentricity),
+                    # Smallest eccentricity? or amount of nodes in radius?
+                    radius = min(eccentricity),
+                    # Average clustering Coefficient
+                    'ACC' = mean(transitivity(g)),
+                    # Average betweenness
+                    'ABT' = mean(betweenness),
+                    # Average Eigen Centrality
+                    'AEC' = mean(`Eigen Centrality`),
+                    # Average Hub Score
+                    'AHS' = mean(`hub`))
+    sum_frame
+    ```
+
+**5. Find the average distance in your network and create the plot for
+the distribution of distance in this network. What do you notice about
+this plot? Describe your observations in at most 50 words. Include your
+answer and the plot in your report, but not your code or other
+outputs.**
+
+-   **Average Distance in the network**
+
+    -   The average distance in the network is `2.610008`. This along
+        with the plot reveals that the network is relatively dense,
+        needing only 2.61 edges on average to connect two characters.
+
+    ```{r echo = FALSE, warning=FALSE, results='hide'}
+    avg <- mean_distance(g)  
+    avg
+    ```
+
+    ```{r echo = FALSE, warning=FALSE, results='hide'}
+    distance_table(g)
+
+    D <- data.frame(1:length(distance_table(g)$res), 
+                    distance_table(g)$res / sum(distance_table(g)$res))
+
+    names(D) <- c('x', 'y')
+
+    D |> 
+      ggplot(aes(x = x, y = y)) + 
+      geom_point() + 
+      geom_line(aes(x = avg), color = 'blue') +
+      labs(title = 'Distribution of Distance in the Star Wars Character Interaction Network') +
+      labs(x = 'Distance', y = 'Density')
+    ```
+
+**6. Create the plot for the degree distribution in your network. What
+do you notice about this plot? Describe your observations in at most 25
+words. Include your answer and one plot in your report, but not your
+code or other outputs.**
+
+```{r echo = FALSE, warning=FALSE, results='hide'}
+degrees <- degree(g)
+# Create a data frame from the degrees
+degree_data <- data.frame(degree = degrees)
+
+# Create the histogram
+ggplot(degree_data, aes(x = degree)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  labs(title = "Degree Distribution of Character Interactions in Star Wars", x = "Degree", y = "Frequency")
+```
+
+**7. Based on Question 6, do you think that the degree distribution
+follows a power law in your network? In other words, is this is a
+scale-free network? If so, find its degree exponent.**
+
+-   The previous plot of the degree distribution clearly shows that this
+    network follows a power law distribution, as the plot is heavily
+    right skewed.
+
+**8. Create a plot (using dots rather histograms) containing both the
+degree distribution for your network (use blue) and the Poisson
+distribution with the correct parameter (use red). Include the plot in
+your report, but not your code.**
+
+-   The plot containing both the degree distribution for my network and
+    the poisson distribution revealed that the degree distribution of
+    the network follows a poisson-like pattern.
+
+```{r echo = FALSE, warning=FALSE, results='hide'}
+# Calculate mean degree for Poisson distribution
+mean_degree <- mean(degrees)
+
+# Create data frame for Poisson distribution
+x <- c(0:max(degrees))
+
+y <- dpois(x, mean(degrees))
+
+
+df2 <- data.frame(x, y)
+
+names(df2) <- c('x', 'y')
+
+total <- sum(degrees)
+
+df |> 
+  group_by(degree) |> 
+  mutate(x = degree,  
+         y = n()/gorder(g)) |> 
+  ggplot(aes(x = x, y = y)) + 
+  geom_point(color = 'blue', size = .5) + 
+  geom_point(data = df2, 
+             aes(x = x, y = y), 
+             color = 'red', 
+             size = .5) + 
+  labs(title = 'Dotplot of the Degree Distribution in the Star Wars Character Network (Blue)\nVersus that of a Poisson Distribution (Red)', x = 'Degree', y = TeX('$\\lambda'))
+```
+
+**9. Create a plot that visualizes the average of clustering
+coefficients based on the degree in your network. Is the average
+clustering coefficient matches what the Erdos-R ́enyi model predicts?
+Include your answer and one plot in your report, but not your code or
+other outputs.**
+
+-   The plot that visualizes the average clustering coefficients based
+    on the degree in my network shows that as the degree of a node
+    increases, its clustering coefficient decreases. This is consistent
+    with what the Erdos-Renyi model predicts. When compared against the
+    random model, the graph has a higher average clustering coefficient,
+    than what would be expected for a random graph.
+
+```{r echo = FALSE, warning=FALSE, results='hide'}
+C <- mean(df$clustering, na.rm = TRUE)
+
+M <- mean(df$degree)
+
+df |> 
+  group_by(degree) |> 
+  summarise(cc_deg = mean(clustering))
+
+df |> 
+  group_by(degree) |> 
+  summarise(cc_deg = mean(clustering)) |> 
+  ggplot(aes(x = degree, y = cc_deg)) + 
+  geom_line(aes(y = C), linetype = "solid", color = "lightblue", size = 2, alpha =.75, lineend = "round") + 
+  geom_line(aes(y = C), linetype = "solid", color = "#72bcd4", size = 1, alpha =1, lineend = "round") + 
+  geom_line(aes(y = C), linetype = "solid", color = "white", size = .8, alpha =1, lineend = "round") + 
+  geom_line(aes(y = M/gorder(g)), linetype = "solid", color = "#ff8080", size = 2, alpha =.75, lineend = "round") + 
+  geom_line(aes(y = M/gorder(g)), linetype = "solid", color = "#ff4d4d", size = 1, alpha =1, lineend = "round") + 
+  geom_line(aes(y = M/gorder(g)), linetype = "solid", color = "white", size = .8, alpha =1, lineend = "round") + 
+  geom_point(na.rm = TRUE) + 
+  scale_x_log10() + 
+  scale_y_log10() + 
+  labs(title =  'Relation Between Local Clustering Coefficient and Outdegree',
+       subtitle = 'The blue line is the average local clustering coefficient; \nthe red line is the clustering coefficient predicted by the random model.') +
+  labs(x = 'k', y = TeX('$C(k)$'))
+```
+
+**10. Create a plot that visualizes the relationship between betweenness
+and degree in your network. What do you notice about this plot? Describe
+your observations in at most 50 words. Include your answer and the plot
+in your report, but not your code or other outputs.**
+
+-   The plot of the relationship between betweenness and degree in my
+    network revealed that as the degree of a node increases, so does
+    it's betweenness centrality. This is expected as nodes with high
+    betweenness, are often hubs, and hubs often have higher degrees.
+
+```{r echo = FALSE, warning=FALSE, results='hide'}
+df |> 
+  filter(betweenness > 0) |> 
+  ggplot(aes(x = degree, y = betweenness)) + 
+  geom_point(na.rm = TRUE, size = 0.5, color = 'red') + 
+  scale_y_log10() +
+  labs(title = TeX('Relationship Between $\\log_{10}$ of Betweenness Centrality and Degree')) +
+  labs(y = TeX('$\\log_{10}$(betweenness)'), x = 'Degree')
+```
+
+**11. Create a plot that visualizes the relationship between
+eccentricity and degree in your network. What do you notice about this
+plot? Describe your observations in at most 50 words. Include your
+answer and the plot in your report, but not your code or other
+outputs.**
+
+-   The plot of eccentricity and degree reinforce that the network's
+    degree distribution is close to the mean degree.
+
+```{r echo = FALSE, warning=FALSE, results='hide'}
+average_eccentricity <- mean(df$eccentricity, na.rm = TRUE)
+
+df |> 
+  ggplot(aes(x = degree, y = eccentricity)) + 
+  geom_hline(yintercept = average_eccentricity, linetype = "solid", color = "#37e300", size = 2, alpha =.75, lineend = "round") +
+  geom_hline(yintercept = average_eccentricity, linetype = "solid", color = "#00b30A", size = 1, lineend = "round") +
+  geom_hline(yintercept = average_eccentricity, linetype = "solid", color = "white", size = .8, alpha = 1, lineend = "round") +
+  geom_point(na.rm = TRUE, 
+             size = .5, 
+             color = 'red') +
+  labs(title = 'Relationship Between Eccentricity and Degree',subtitle = 'Green represents the Average Eccentricity', x = 'Degree', y = 'Eccentricity')
+
+```
+
+**12. Create a plot that visualizes the relationship between clustering
+and degree in your network. What do you notice about this plot? Describe
+your observations in at most 50 words. Include your answer and the plot
+in your report, but not your code or other outputs.**
+
+-   The plot that visualizes the relationship between clustering and
+    degree in my network reveals that it is not similar to the Random
+    Model.
+
+```{r echo = FALSE, warning=FALSE, results='hide'}
+# Calculate the clustering coefficient for each node
+node_cc <- transitivity(g, type = "local")
+
+# Create a data frame to store the node IDs, degrees, and clustering coefficients
+node_data <- data.frame(
+  node = V(g)$name,
+  degree = degree(g),
+  clustering_coefficient = node_cc
+)
+
+# Calculate the average clustering coefficient for each degree
+degree_avg_cc <- aggregate(clustering_coefficient ~ degree, data = node_data, FUN = mean)
+
+# Plot the average clustering coefficient for each degree
+ggplot()+
+  geom_point(data = degree_avg_cc, aes(x = degree, y = clustering_coefficient),color='blue') + 
+    labs(title = "Distribution of Clustering Coefficients",
+         subtitle = "In the Star Wars Character Interaction Network",
+         x = 'Degree',
+         y = 'Clustering Coefficient')
+```
+
+**13. Create a plot that visualizes the relationship between hub score
+and degree in your network. What do you notice about this plot? Describe
+your observations in at most 50 words. Include your answer and the plot
+in your report, but not your code or other outputs.**
+
+-   The plot that visualizes the relationship between hub score and
+    degree in my network revealed that as a node's degree increases, its
+    hub score also increases, which is expected.
+
+```{r echo = FALSE, warning=FALSE, results='hide'}
+df |> 
+  ggplot(aes(x = degree, y = hub)) + 
+  geom_point(na.rm = TRUE, 
+             size = 0.5, 
+             color = 'red') +
+  labs(title = 'Relationship Between Hub Score and Degree', x = 'Degree', y = 'Hub')
+```
